@@ -5,6 +5,8 @@ Compiled repo of ESM 206 labs (Fall 2021)
 
 ### Lab 1 skills: 
 
+- Meet RStudio
+- Our first R Markdown (& some formatting basics)
 - Create a new .Rproj and add files to working directory
 - Install new packages with `install.packages("package_name")`
 - Attach packages with `library()`
