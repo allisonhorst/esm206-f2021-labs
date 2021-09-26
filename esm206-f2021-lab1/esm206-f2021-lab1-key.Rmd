@@ -21,9 +21,9 @@ By the end of Lab 1, you should be able to...
 - Attach packages with library()
 - Read in a CSV with readr::read_csv()
 - Explore data a little bit
-- Do some basic wrangling with dplyr (select, filter, mutate, group_by, summarize)
-- Use the pipe operator
-- Create basic graphs in ggplot2
+- Do some basic wrangling with dplyr (`select()`, `filter()`, `mutate()`, `group_by()`, `summarize()`)
+- Use the pipe operator (`%>%`)
+- Create basic graphs with `ggplot2`
 
 **Setup:** Make a directory (folder) on our computer that you'll put all of your ESM 206 labs in. Maybe Documents > Bren courses > esm_206 > labs
 
