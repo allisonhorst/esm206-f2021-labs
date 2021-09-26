@@ -1,0 +1,243 @@
+---
+title: "Lab 1 Key - Intro to R/RStudio, RProj, and a few wrangling basics"
+author: "Allison Horst"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Attach packages:
+library(tidyverse)
+library(janitor)
+library(here)
+```
+
+# Lab 1 objectives
+
+By the end of Lab 1, you should be able to...
+
+- Create a new .Rproj and add files to working directory
+- Attach packages with library()
+- Read in a CSV with readr::read_csv()
+- Explore data a little bit
+- Do some basic wrangling with dplyr (select, filter, mutate, group_by, summarize)
+- Use the pipe operator
+- Create basic graphs in ggplot2
+
+**Setup:** Make a directory (folder) on our computer that you'll put all of your ESM 206 labs in. Maybe Documents > Bren courses > esm_206 > labs
+
+# Part 1: Hello, RStudio
+
+# Part 2: Hello, RMarkdown
+
+Create a new RMarkdown document. You can save this directly in your labs folder.
+
+Some basics of RMarkdown: 
+
+- Bulleted lists
+- With a dash then a space to start the line
+- Make sure to have a blank line before it.
+  - You can have nested lists
+  
+1. Numbered lists
+2. Also work
+
+Create different header levels:
+
+# Largest (single pound sign)
+### Get smaller as you add more pound signs
+##### Even smaller with more pound signs...
+
+*Italics* with a single asterisk on each end
+**Bold** with a double asterisk on each end
+
+Or, check out the visual editor!!! 
+
+Knitting: create an html from your .Rmd. 
+
+# Part 3: Hello, data
+
+## Create a new R project and add data 
+
+In RStudio:
+
+- Create a new R project (blue cube) - save in the labs folder you created above
+- Download the mack_creek_verts.csv file from GauchoSpace
+- Copy and paste the mack_creek_verts.csv file into the project folder
+- Within the R project, create a new R Markdown document, deleting everything below the setup code chunk
+- Attach the `tidyverse`, `janitor` and `here` packages (if you don't have janitor and here installed, run `install.packages("janitor")` and `install.packages("here")` in the Console)
+
+**Data citation:** Gregory, S.V. and I. Arismendi. 2020. Aquatic Vertebrate Population Study in Mack Creek, Andrews Experimental Forest, 1987 to present ver 14. Environmental Data Initiative. https://doi.org/10.6073/pasta/7c78d662e847cdbe33584add8f809165
+
+**Metadata:** For information on the Mack Creek Vertebrates data, see metadata [HERE](https://portal.edirepository.org/nis/metadataviewer?packageid=knb-lter-and.4027.14). 
+
+## Read in Mack Creek Vertebrates data
+
+In a new code chunk, use `read_csv()` to read in the mack_creek_verts.csv data as a new stored object 'verts' (**note:** your file path will differ from this! Make sure you use the right path within YOUR project). We use `here()` to point to different files *within our project*. 
+
+```{r}
+verts <- read_csv(here("esm206-f2021-lab1", "mack_creek_verts.csv"))
+```
+
+Make sure to **run** that code, and note that `verts` now appears in the Environment tab. Click on the name of the object in the Environment to run the View() function, which will bring up `verts` in its own tab to take a look. 
+
+## Do some basic exploring
+
+Let's take a look at the data we just read in. We'll do this in the Console, because we don't care about having a history of this initial exploration.
+
+- `head()`: Return the first 6 lines
+- `tail()`: Return the last 6 lines
+- `names()`: Return the column headers
+- `summary()`: Basic summary of columns
+
+## Clean up column names with janitor::clean_names()
+
+The column names are not particularly coder-friendly (all caps - annoying to work with). There are a number of ways to update column headers, but `janitor::clean_names()` is a really great one that will update them all to lower_snake_case all at once! 
+
+We will also use the pipe operator (`%>%`), which is imported when we attach the tidyverse, for the first time. We can think of the pipe as a way to say "and then..." between sequential bits of code. It allows us to perform sequences of steps in a logical way, instead of using a bunch of nested functions! 
+
+The shortcut to add the pipe is Command + Shift + M.
+
+The code below creates a new object, verts_clean, that starts from verts *and then* applies janitor::clean_names()! 
+
+```{r}
+verts_clean <- verts %>% clean_names()
+```
+
+Run the code, then look at the outcome `verts_clean` to ensure that the column headers are updated. 
+
+## Basic wrangling
+
+We've already done a lot in this session: created a project, dropped data into the project folder, read in data, cleaned column names, and met the pipe operator (%>%). Now, let's add a few more tools to our wrangling toolkit:
+
+- dplyr::select() - choose / exclude columns 
+- dplyr::filter() - create subsets based on conditions
+
+Use `dplyr::select()` to select (or exclude) columns. 
+
+The code below creates a new stored object, `verts_subset`, that starts from verts_clean but only keeps 5 columns: year, section, species, length1, and weight. 
+
+```{r}
+verts_subset <- verts_clean %>% 
+  select(year, section, species, length1, weight)
+```
+
+You can also exclude columns in select() by putting a minus sign in front of the column names. We'll learn other ways to use select() moving forward. 
+
+We can use the filter() function from dplyr to create of data based on conditions that we set. For example, starting from `verts_subset`, let's filter to make several different subsets:  
+
+- Only keep observations from 1988
+- Only keep observations for ONCL 
+- Only keep observations for CC from 1995
+- Only keep observations if length is greater than 90
+
+```{r}
+# A subset containing only observations where year matches 1988
+verts_1988 <- verts_subset %>% 
+  filter(year == 1988)
+
+# A subset containing only observations where species matches ONCL
+verts_oncl <- verts_subset %>% 
+  filter(species == "ONCL")
+
+# A subset keeping observations where section matches "CC" and year matches 1995
+verts_cc_1995 <- verts_subset %>% 
+  filter(section == "CC", year == 1995)
+
+# A subset that only retains observations if length1 is greater than 90
+verts_greater_90 <- verts_subset %>% 
+  filter(length1 > 90)
+
+```
+
+Cool! Now you have a couple tools to start wrangling your data! 
+
+## Piped sequence of functions
+
+Instead of writing out one step at a time, we can pipe together sequences of steps. Make sure that you **check the output of each step** before moving onto the next! 
+
+Let's create a new subset called `verts_piped` following steps:
+
+- Start with verts
+- Convert column names to lower snake case
+- Select only species and weight
+- Filter only include ONCL (species)
+
+In a piped sequence, that looks like this: 
+
+```{r}
+verts_piped <- verts %>% 
+  clean_names() %>% 
+  select(species, weight) %>% 
+  filter(species == "ONCL")
+```
+
+Here is another example that starts with verts, cleans up the column names, selects just 4 columns, then filters to only include ONCL species (cutthroat trout) from the year 1990. 
+
+```{r}
+cutthroat_1990 <- verts %>% 
+  clean_names() %>% 
+  select(year, species, length1, weight) %>% 
+  filter(year == 1990, species == "ONCL")
+```
+
+## Plot it! 
+
+```{r}
+# Plot it! 
+ggplot(data = cutthroat_1990, aes(x = length1, y = weight)) +
+  geom_point(color = "red")
+```
+
+## `dplyr::mutate()`
+
+Use `dplyr::mutate()` to add or transform columns, while keeping existing columns in your data frame. 
+
+Let's say we want to add a column that contains weight (currently in grams) into kilograms. We'll call the new column `weight_kg`. 
+
+```{r}
+verts_wt_kg <- verts %>% 
+  clean_names() %>% 
+  mutate(weight_kg = weight / 1000)
+```
+
+## `dplyr::group_by() %>% summarize()`
+
+Use `group_by() %>% summarize()` to find and report summary statistics by group.
+
+```{r}
+verts_clean %>% 
+  drop_na(species) %>% 
+  group_by(species) %>% 
+  summarize(mean_length = mean(length1, na.rm = TRUE),
+            sd_length = sd(length1, na.rm = TRUE))
+
+# We can also group by multiple variables! 
+verts_clean %>% 
+  drop_na(species) %>% 
+  group_by(species, section) %>% 
+  summarize(mean_length = mean(length1, na.rm = TRUE),
+            sd_length = sd(length1, na.rm = TRUE))
+
+```
+
+## Wrap-up
+
+Congratulations! In Lab 1, you have: 
+
+- Made an R Project (self-contained working directory)
+- Added data
+- Created a new R Markdown document
+- Read in the data
+- Did some basic exploring
+- Some data wrangling basics (select, filter, mutate, group_by + summarize)
+- Learned a few base operations (mean, sd, max, min, n, na.rm = TRUE)
+- Used the pipe operator for sequences of steps
+- Made a ggplot2 graph! 
+
+Save / knit, close your project, and reopen (by double clicking the .Rproj file), and ensure that you can re-run everything. 
+
+YAY reproducibility! 
+
+## END LAB 1
