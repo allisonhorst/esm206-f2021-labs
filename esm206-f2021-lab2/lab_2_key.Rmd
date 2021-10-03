@@ -1,0 +1,197 @@
+---
+title: "Lab 2 key"
+output: html_document
+---
+
+```{r setup, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+# Attach packages
+library(tidyverse)
+library(janitor)
+library(here)
+library(palmerpenguins)
+```
+
+## SEE https://github.com/allisonhorst/esm206-f2020-labs/tree/main/lab_2
+
+## Lab 2 objectives:
+
+- Project management (more subfolder structure & `here`)
+- Continue meeting R Markdown
+- More data wrangling (filtering, `mutate()`, and summary tables with `group_by` + `summarize`)
+- Customization in `ggplot2`
+
+## Packages required: 
+
+- `tidyverse`
+- `janitor`
+- `here`
+- `palmerpenguins`
+
+### 1. Lab set-up & project management: 
+
+- Create a new R Project (within your ESM 206 labs folder)
+- Add subfolders `data`, `img`, `src`
+- Copy and paste the `ca_ag_2014.csv` file into the project `data` folder
+- In RStudio, create a new RMarkdown doc (.Rmd). Save to the `src` folder
+- In your new R Markdown document, attach the `tidyverse`, `janitor`, `here`, and `palmerpenguins` packages in the setup chunk
+
+## 2. A couple more R Markdown tips 
+
+1. URL
+
+    - Add a functional URL by just copying & pasting it: https://www.ucsb.edu/
+
+    - Or add linked text [like this](https://www.ucsb.edu/).
+
+2. Superscripts / subscripts
+
+    - Superscript text with a ^ on either side: like^this^
+
+    - Subscript text with a ~ on either side: like~this~
+
+3. Add image from a URL
+
+    - Find an image online (for more octocats - the GitHub mascot- visit https://octodex.github.com/)
+
+    - Right click > Copy image location
+
+    - Paste the image location into the parentheses in this format: `![](paste_image_location_here.png)`
+
+For example: 
+
+![](https://octodex.github.com/images/dinotocat.png)
+
+But ask yourself: how does that break? What might be a safer and more robust way to include an image? 
+
+## 3. Read in the data 
+
+Today we'll use information from California crop production from 2014. 
+
+First, open the CSV in Excel or other spreadsheet software (outside of R, open the file & it will open in Excel if you have it). Make sure to take a look at the data after you read them in. **Note:** Your file path will differ from the one below.
+
+```{r}
+# Read in the ca_agriculture.csv file
+ca_ag <- read_csv(here("esm206-f2021-lab2", "ca_ag_2014.csv")) %>% 
+  clean_names()
+```
+
+## 4. More `dplyr::filter()` examples
+
+a. Keep data from counties "Kern" OR "Inyo" OR "Mono"
+
+Use `%in%` to look for multiple acceptable matches. 
+
+```{r}
+ex_a <- ca_ag %>% 
+  filter(county %in% c("Kern", "Inyo", "Mono"))
+```
+
+b. Keep data for all counties EXCEPT Merced
+
+Use `!=` to say "DOES NOT MATCH":
+
+```{r}
+ex_b <- ca_ag %>% 
+  filter(county != "Merced")
+```
+
+**Tip:** Use the `unique()` function to check with distinct groups remain in a variable
+
+c. Keep observations where crop is "GOATS MILK" and county is "Humboldt"
+
+```{r}
+ex_c <- ca_ag %>% 
+  filter(crop_name == "GOATS MILK", county == "Humboldt")
+```
+
+d. Keep observations where crop is "GRAPES WINE" **or** harvest acres is greater than 1,000,000:
+
+```{r}
+ex_d <- ca_ag %>% 
+  filter(crop_name == "GRAPES WINE" | harvest_acres > 1e6)
+```
+
+## 5. `mutate()` to add a new column (or transform an existing one)
+
+We'll use the `mutate()` function in dplyr (part of the tidyverse) to add a new column, or to transform an existing one. 
+
+In `ca_ag`, we have a column for "production" and one for "price per unit". We want a new column containing the value for each observation:
+
+```{r}
+ca_ag_value <- ca_ag %>% 
+  mutate(value_usd = production * price_per_unit)
+```
+
+We can also use `mutate()` to transform existing columns. 
+
+```{r}
+ca_ag_lower <- ca_ag %>% 
+  mutate(crop_name = str_to_lower(crop_name))
+```
+
+
+## 6. `group_by()` + `summarize()` for tables of summary statistics
+
+We often want to find summary statistics (e.g. mean, standard deviation, max, min, etc.) within *groups* for our data. For example, we may want to find the total *value* of crops by *county* for California in 2014. But it would be really tedious to make a different subset for each county, then find those statistics. 
+
+Instead, we will use the powerful combination of `dplyr::group_by()` and `summarize()` to:
+
+- Recognize distinct groups within a variable
+- Apply a function to each *group*
+- Return the outcomes in a nice table
+
+It is awesome. You should plan on using this all the time (if you're an Excel wizard, this is your replacement for pivot tables).
+
+Here's a little example first using the [palmerpenguins](https://allisonhorst.github.io/palmerpenguins/). View the `penguins` data (`View(penguins)`). 
+
+```{r}
+penguin_bill_lengths <- penguins %>% 
+  group_by(species) %>% 
+  summarize(mean_bill_length_mm = mean(bill_length_mm, na.rm = TRUE))
+
+penguin_size_summary <- penguins %>% 
+  group_by(species) %>% 
+  summarize(mean_flipper_length_mm = mean(flipper_length_mm, na.rm = TRUE),
+            mean_body_mass_g = mean(body_mass_g, na.rm = TRUE),
+            sample_size = n())
+
+penguin_size_summary
+```
+
+Now let's try one for our CA ag data, as part of a piped sequence! 
+
+a. Create a summary table of the total sum of *value* by *county* for "GRAPES WINE". 
+
+```{r}
+ca_grapes <- ca_ag %>% 
+  filter(crop_name == "GRAPES WINE", county != "State Total") %>% 
+  mutate(value = production * price_per_unit) %>% 
+  group_by(county) %>% 
+  summarize(
+    total_value_usd = sum(value)
+  ) %>% 
+  slice_max(total_value_usd, n = 10)
+
+ca_grapes # return the table in knitted doc
+```
+
+## 7. Customizing ggplot graphs
+
+```{r}
+cc_ag <- ca_ag %>% 
+  filter(county %in% c("San Luis Obispo", "Santa Barbara", "Ventura"))
+ggplot(data = cc_ag, aes(x = county, y = production)) + 
+  geom_jitter(width = 0.1, 
+              alpha = 0.8,
+              size = 2,
+              aes(color = county),
+              show.legend = FALSE) +
+  theme_minimal() +
+  scale_color_manual(values = c("purple",
+                                "darkorange",
+                                "cyan4")) +
+  labs(x = "California county",
+       y = "Agricultural production (acres per farm)", 
+       title = "California agriculture (2014)")
+```
