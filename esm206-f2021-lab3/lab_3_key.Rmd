@@ -1,0 +1,179 @@
+---
+title: "ESM 206 Lab Week 3 Key"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(janitor)
+library(here)
+library(gapminder)
+```
+
+### Part 0: Setup
+
+- Create a new R project (does not need to be version-controlled)
+- Add two subfolders: data and src
+- Download two data files from GauchoSpace: jornada_lizards.csv and lizard_abb.csv, and copy them into your project data folder
+- Open a new R Markdown document in your project, delete all below the setup chunk
+- Attach the necessary packages in the setup chunk (tidyverse, janitor, here, gapminder). Note, you probably need to install the `gapminder` package by running `install.packages("gapminder")` in the Console
+
+### Part 1: Tidying data continued
+
+In this section, we'll learn how to combine two data frames with `full_join()`, and to reshape with `pivot_longer()` and `pivot_wider()` to get data into tidy format.
+
+A. Join lizard common names with lizard data
+
+The following data are from Jornada Basin LTER: 
+
+- Title: Lizard pitfall trap data (LTER-II, LTER-III)
+- URL: https://portal.edirepository.org/nis/mapbrowse?packageid=knb-lter-jrn.210007001.36
+- Citation: Lightfoot, D. 2017. Lizard pitfall trap data (LTER-II, LTER-III) ver 36. Environmental Data Initiative. https://doi.org/10.6073/pasta/ff37b4cace16a9943575f3fd7067064e (Accessed 2020-07-05).
+- Lizard code list from: https://jornada.nmsu.edu/content/lizard-code-list
+
+Read in both lizards datasets: 
+
+- jornada_lizards.csv (pitfall trap data), which contains:
+     - common name
+     - site (site name)
+     - sex (M = male, F = female, J = juvenile)
+     - tail (B = broken, W = whole)
+- lizard_abb.csv (lizard abbreviations & common names)
+
+
+```{r}
+# Read in lizards data
+# Note: your path will differ depending on uyour project setup
+lizard_names <- read_csv(here("esm206-f2021-lab3","lizard_abb.csv"))
+
+lizard_traps <- read_csv(here("esm206-f2021-lab3","jornada_lizards.csv"))
+```
+
+Join together by the `common_name` variable with `full_join()`. See more information on `full_join()` - there are other options for more discriminating / excluding joins, but if you're not sure how they work **FULL JOIN** and deal with filtering later! 
+
+```{r}
+lizard_join <- lizard_traps %>% 
+  full_join(lizard_names)
+```
+Notice that it will first look for matching names, and join by those. But we don't *have* to have matching names. For example, let's make a version of lizard_traps that has common_name renamed as "lizard_name":
+
+```{r}
+lizard_traps_rn <- lizard_traps %>% 
+  rename(lizard_name = common_name)
+```
+
+We can then specify which column to join by: 
+
+```{r}
+lizard_join_2 <- lizard_traps_rn %>% 
+  full_join(lizard_names, by = c("lizard_name" = "common_name"))
+```
+
+Refresh our memory on finding counts: 
+
+```{r}
+tail_counts <- lizard_join %>% 
+  filter(common_name %in% c("Western Whiptail","Eastern Fence")) %>% 
+  count(common_name, tail)
+
+tail_counts
+```
+
+B. `pivot_longer()` and `pivot_wider()`
+
+Check out the gapminder data (reminder: why not put this `View(gapminder)` in your R Markdown code?)
+
+Wrangle it a bit:
+```{r}
+n_am <- gapminder %>% 
+  filter(country %in% c("United States", "Canada", "Mexico")) %>% 
+  select(country, year, pop)
+```
+Note: these data are already in tidy format. So you probably wouldn't want to do this: 
+
+Use `pivot_wider` to split years across multiple columns:
+
+```{r}
+n_am_wider <- n_am %>% 
+  pivot_wider(names_from = year, 
+              values_from = pop)
+```
+
+**Much more often** this wide format is the problem (e.g. year split up over multiple columns, but should be in a single column). We can use `pivot_longer()` to convert from wide-to-long format: 
+
+```{r}
+n_am_longer <- n_am_wider %>% 
+  pivot_longer(cols = `1952`:`2007`,
+               names_to = "year",
+               values_to = "pop"
+  ) %>% 
+  mutate(year = as.numeric(year))
+```
+
+Finally, let's just do a quick ggplot reminder: 
+
+```{r}
+ggplot(n_am_longer, aes(x = year, y = pop)) +
+  geom_line(aes(color = country)) +
+  geom_point(aes(color = country)) +
+  theme_minimal()
+```
+
+### Part 2: Writing functions in R
+
+What is a function? A function is a named bit of code that is meant to perform specific operations or tasks with user-defined arguments. 
+
+We've already been using tons of functions! All of our wrangling has been done with functions (`select()`, `filter()`, `mean()`, etc.) - but sometimes we might want to make our own. 
+
+To make our own function, we need to: 
+
+1. Name it
+2. Tell it what the arguments are (choose useful names here, too!)
+3. Specify the operation or tasks
+
+The easiest way: write the equation like a normal human, then use Command + Option + X as a shortcut to put it into function notation! 
+
+```{r}
+# Creating a distance function: 
+distance <- function(rate, time) {
+  rate*time
+}
+
+# Then try it out with your own arguments added! 
+distance(rate = 60, time = 2)
+```
+Example: the relationship between fish length (L) and weight (W) is estimated by: 
+
+$W=aL^b$
+
+A summary of parameters for different fish can be found in Ogle, D. FishR Vignette - Fish Condition and Relative Weights (2013). 
+
+For red snapper, the parameters are estimated (from Diaz 2004) as: 
+
+- a = 0.00001
+- b = 3.076
+
+with length (L) in cm and weight (W) in kg.
+
+Write a function for the red snapper relationship, then estimate the weight of a red snapper that is 42 cm long.
+
+```{r}
+
+fish_weight <- function(a, L, b) {
+  a*(L^b)
+}
+
+fish_weight(a = 0.00001, L = 42, b = 3.076)
+# 0.98 kg
+
+# Note: you can also just add arguments in the correct ORDER without specifically naming them, but I prefer being explicit. For example: 
+
+fish_weight(0.00001, 74, 3.076)
+
+# versus (same output): 
+
+fish_weight(a = 0.00001, L = 42, b = 3.076)
+```
+
+Cool! Now you can make your own functions, with arguments that you name and specify! 
