@@ -77,7 +77,15 @@ tail_counts <- lizard_join %>%
   filter(common_name %in% c("Western Whiptail","Eastern Fence")) %>% 
   count(common_name, tail)
 
+# Or, using tools we already have: 
+tail_counts_2 <- lizard_join %>% 
+  filter(common_name %in% c("Western Whiptail", "Eastern Fence")) %>% 
+  group_by(common_name, tail) %>% 
+  summarize(count = n())
+
 tail_counts
+
+tail_counts_2
 ```
 
 B. `pivot_longer()` and `pivot_wider()`
@@ -177,3 +185,5 @@ fish_weight(a = 0.00001, L = 42, b = 3.076)
 ```
 
 Cool! Now you can make your own functions, with arguments that you name and specify! 
+
+## End Lab 3

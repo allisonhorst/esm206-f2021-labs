@@ -233,9 +233,26 @@ lizard_names &lt;- read_csv(here(&quot;esm206-f2021-lab3&quot;,&quot;lizard_abb.
   filter(common_name %in% c(&quot;Western Whiptail&quot;,&quot;Eastern Fence&quot;)) %&gt;% 
   count(common_name, tail)
 
-tail_counts</code></pre>
+# Or, using tools we already have: 
+tail_counts_2 &lt;- lizard_join %&gt;% 
+  filter(common_name %in% c(&quot;Western Whiptail&quot;, &quot;Eastern Fence&quot;)) %&gt;% 
+  group_by(common_name, tail) %&gt;% 
+  summarize(count = n())</code></pre>
+<pre><code>## `summarise()` has grouped output by &#39;common_name&#39;. You can override using the `.groups` argument.</code></pre>
+<pre class="r"><code>tail_counts</code></pre>
 <pre><code>## # A tibble: 6 × 3
 ##   common_name      tail      n
+##   &lt;chr&gt;            &lt;chr&gt; &lt;int&gt;
+## 1 Eastern Fence    B         7
+## 2 Eastern Fence    W        35
+## 3 Eastern Fence    &lt;NA&gt;      1
+## 4 Western Whiptail B        31
+## 5 Western Whiptail W       183
+## 6 Western Whiptail &lt;NA&gt;     13</code></pre>
+<pre class="r"><code>tail_counts_2</code></pre>
+<pre><code>## # A tibble: 6 × 3
+## # Groups:   common_name [2]
+##   common_name      tail  count
 ##   &lt;chr&gt;            &lt;chr&gt; &lt;int&gt;
 ## 1 Eastern Fence    B         7
 ## 2 Eastern Fence    W        35
@@ -314,6 +331,9 @@ fish_weight(0.00001, 74, 3.076)</code></pre>
 fish_weight(a = 0.00001, L = 42, b = 3.076)</code></pre>
 <pre><code>## [1] 0.9842713</code></pre>
 <p>Cool! Now you can make your own functions, with arguments that you name and specify!</p>
+</div>
+<div id="end-lab-3" class="section level2">
+<h2>End Lab 3</h2>
 </div>
 
 
