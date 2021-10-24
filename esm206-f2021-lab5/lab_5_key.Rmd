@@ -1,0 +1,170 @@
+---
+title: "Lab 5 Key"
+subtitle: "Confidence intervals, t-tests, in-line references. Rmd updates"
+output: 
+  html_document: 
+    theme: cerulean
+    highlight: pygments
+    toc: yes
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(effsize)
+```
+
+## Setup & change RMarkdown settings
+
+Here, we'll use the "repo first" strategy to create a version-controlled R project. 
+
+- Make a new repo on GitHub (called esm206-lab5 or similar), with a ReadME
+- Clone to create a version-controlled R project with the same name
+
+We'll use the 'Settings > Output Settings' tool to update the YAML, changing the theme, highlighting, and adding a table of contents. 
+
+- Create a new R Markdown document, don't delete anything
+- Go to the gear icon "Settings" dropdown at the top of your .Rmd, and choose Output Options, where you can change the theme, add a table of contents, and more
+
+### Confidence intervals 
+
+To find a confidence interval with a single sample, use `t.test()` on the vector of sample values:
+
+```{r}
+# Create my sample (vector):
+otter_length <- c(38, 41, 50, 27, 32, 41, 48, 60, 43)
+
+# Use t.test() to return a CI (95% is default)
+t.test(otter_length)
+```
+Note: the mean and CI presented are meaningful, but the t-test results themselves are probably not - the default is to test a null hypothesis that the population mean = 0 (e.g. here, the null hypothesis test is that the mean otter length is 0 inches...which doesn't really make any sense).
+
+### T-test (1-sample t-test)
+
+More often, if we want to test a claim with our one sample, we'll use a one-sample t-test to compare our sample mean to a non-zero null hypothesis. 
+
+For example, if we see a claim that the mean length for the otter population being studied is 50 inches, then to perform a one-sample t-test we would update the default from `mu = 0` to `mu = 50`: 
+
+```{r}
+otter_test <- t.test(x = otter_length, mu = 50)
+otter_test
+```
+What does that p = 0.044 mean? If the true population mean length *is* 50 inches, there is a 4.4% chance that we could have a taken a random sample from that population (of the size & dispersion of our sample) that is *at least as far as our sample mean is from the population mean* by random chance. 
+
+### Two-sample t-test
+
+One-sample tests to compare a single sample to a null hypothesis population parameter are actually pretty rare. Much more common is to collect a sample for different groups, then ask: How different are the sample means? And are they different enough that I think they are drawn from *populations* with different means? 
+
+In that case (caveat: assumptions!!!), it maybe appropriate to perform a two-sample t-test to compare means. 
+
+In this case, let's say we have samples for horn length of desert and sierra bighorn sheep. If we perform at two-sample t-test, we are asking: What is the probability that I would have found samples with means that are *at least as different as the ones I've found* by random chance, if they are drawns from populations with the same mean? 
+
+Keep in mind, it's important to LOOK AT, EXPLORE, and THINK REALLY HARD about data (distribution, outliers, data type, etc.) before choosing a type of test.
+
+Here, we'll say we've done all of that work already, and have decided that a two-sample t-test is appropriate. 
+
+Use `t.test()` with the sample vectors as input arguments to run a two-sample t-test for means comparison. 
+
+```{r}
+desert_bighorns <- c(32, 44, 18, 26, 50, 33, 42, 20)
+sierra_bighorns <- c(28, 31, 40, 42, 26, 29, 31)
+
+t.test(x = desert_bighorns, y = sierra_bighorns)
+
+# To find the standard deviation of each, used below in reporting (if working with a data frame, you would probably have these in a summary table created with group_by + summarize): 
+
+sd(desert_bighorns)
+sd(sierra_bighorns)
+```
+We see that the means for each group are shown in the last row of the output (33.13 and 32.43 cm, respectively, for desert and sierra bighorns). The CI here is for the difference in means (so might not be worth reporting). But to report the t-test part of this, we'd include something like: 
+
+"Mean horn lengths for Desert bighorns (33.13 $\pm$ 11.56 cm, n = 8) were only slightly longer than those of Sierra bighorns (32.43 $\pm$ 6.13 cm, n = 7), a difference of just over 2% (values are mean $\pm$ 1 standard deviation; t(10.9) = 0.15, p = 0.88)."
+
+That last part is where the hypothesis test information is contained, which is usually in the format of: 
+
+`t(df) = t-value, p = p-value`
+
+Where the `t(df)` indicates the t-distribution with df (degrees of freedom), the t-value is the value of the t-statistic (a measure of how different from 0 your sample means difference is on the t-distribution), and the p-value is the probability of randomly finding sample means at least as different as yours are by random chance (given n and dispersion) if they are drawn from populations with the same mean. 
+
+Using the built-in `mpg` dataset from `ggplot2` (so you need the tidyverse loaded for it to work), I'll compare mean city mpg for SUVs versus compact cars using a 2-sample t-test. 
+
+First, run `View(mpg)` in the Console to take a look at the data. 
+
+### 1. Make a subset with only those groups
+
+```{r}
+compact_suv <- mpg %>% 
+  filter(class %in% c("suv", "compact"))
+```
+
+### 2. Visual data exploration with histograms and QQ-plots
+
+```{r}
+ggplot(data = compact_suv, aes(x = cty)) +
+  geom_histogram(bins = 15) +
+  facet_wrap(~class)
+
+ggplot(data = compact_suv, aes(sample = cty)) +
+  geom_qq() +
+  facet_wrap(~class)
+```
+### 3. Find some summary statistics
+
+```{r}
+car_stats <- compact_suv %>% 
+  group_by(class) %>% 
+  summarize(
+    mean_city = mean(cty),
+    sd_city = sd(cty),
+    sample_size = n()
+  )
+
+car_stats
+```
+
+Sample size in combination with histograms & QQ plots: I feel OK about using a t-test for a means comparison. 
+### 4. Split df into groups, then pull sample vectors
+
+```{r} 
+compact_sample <- compact_suv %>% 
+  filter(class == "compact") %>% 
+  pull(cty)
+
+suv_sample <- compact_suv %>% 
+  filter(class == "suv") %>% 
+  pull(cty)
+```
+
+### 5. Then run a two-sample t-test with those vectors as the inputs
+
+```{r}
+car_t <- t.test(compact_sample, suv_sample)
+
+car_t
+```
+There is a negligible probability of randomly selecting two samples from populations with the same mean that are this different by chance. They are almost certainly from populations with different mean mpgs - which makes sense. Of course they do. More interesting: How different are they?
+
+### 6. Cohen's D
+
+```{r}
+car_cohen <- cohen.d(compact_sample, suv_sample)
+# Large effect size
+
+car_cohen
+```
+
+### 7. In-line referencing of stored model / analysis outputs
+
+The effect size was large (Cohen's *d* = `r car_cohen$estimate`).
+
+Writing it all out: Mean gas mileage for compact cars (`r round(car_t$estimate[1],2)` mpg) is greater than that for SUVs (`r round(car_t$estimate[2],2)` mpg); the effect size is large (Cohen's *d* = `r round(car_cohen$estimate,2)`) and the difference significant (two-sample t-test, t = `r round(car_t$statistic,2)`, p < 0.001)
+
+
+
+
+
+
+
+
+
