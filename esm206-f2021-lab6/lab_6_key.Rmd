@@ -1,0 +1,266 @@
+---
+title: "Week 6 Coding Lesson - Intro to Linear Regression"
+author: "Allison Horst"
+output: html_document
+---
+
+This week, you'll be trying a DIY coding lesson. There is not an accompanying recording. 
+
+Follow along with the instructions below to explore data, perform linear regression, and evaluate diagnostic plots to assess model assumptions. The objectives of Lab Week 6 are: 
+
+- Example of rank-based tests for rank / medians comparison (Mann-Whitney U)
+- Simple linear regression by OLS in R with `lm()`
+- Check assumptions of OLS (diagnostic plots with `plot()`)
+- Visualize linear model, and summarize in text
+- Find correlation by Pearson's *r* 
+
+## Part 0: Set-up a version-controlled R Project
+
+Create a new version-controlled R Project for the Week 6 lab (by first making a new repo in GitHub, then connecting to a new R Project). Within the root of your project (you'll just have a single .Rmd file), create a new .Rmd in which you complete this lab.
+
+There is no external data needed (just using `penguins`) data from the `palmerpenguins` package.
+
+## Part 1: Attach packages
+
+In your .Rmd setup chunk, attach the following packages:
+
+- `tidyverse`
+- `palmerpenguins`
+- `ggpubr` (see note below)
+- `broom`
+
+**Note:** you probably need to install the `ggpubr` package by running `install.packages("ggpubr")` in the Console.
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(palmerpenguins)
+library(ggpubr)
+library(broom) 
+library(equatiomatic)
+```
+
+Now, follow along with the examples below to practice Mann-Whitney U (rank-based alternative to independent samples t-test) and linear regression! Remember: the .Rmd key is also posted. You will want to look at that to see how I refer to model outputs when reporting (instead of manually copying & pasting values). 
+
+## Part 2: A rank-based test example (Mann Whitney U)
+
+In lecture this week we learned a bit about non-parametric, rank-based alternatives to some of the hypothesis tests we've been doing to compare means, including: 
+
+- Mann-Whitney U to compare ranks (medians) between two unpaired samples (non-parametric alternative to two-sample t-test)
+- Kruskall-Wallis to compare ranks (medians) between > 2 samples (non-parametric alternative to one-way ANOVA)
+
+As an example, let's make some mock unpaired data and investigate the difference in ranks (often called a *medians comparison*) by Mann-Whitney U using the `wilcox.test()` function (you'd also use this for a paired Wilcoxon-Signed-Rank test, with an additional 'paired = TRUE' argument, if samples were paired). 
+
+First, let's create two sample vectors called `gp_1` and `gp_2`.
+We use `set.seed()` here to create a "pseudorandom" sample, so that we all get the same samples -- otherwise we'd all get something different! We use `sample.int()` to create random samples with integers from 1 to x, of size = ?, with replacement: 
+
+```{r}
+set.seed(1414)
+gp_1 <- sample.int(20, size = 15, replace = TRUE)
+
+set.seed(1424)
+gp_2 <- sample.int(30, size = 15, replace = TRUE)
+```
+
+Take a look at vectors `gp_1` and `gp_2` by calling each in the Console.
+
+We ask: Is there evidence for a significant difference in ranks (medians) between the populations from which `gp_1` and `gp_2` were drawn?
+
+First, always look at it (here, using the base R `hist()` function to create an exploratory histogram of each -- fine if you're only doing this for a quick look with a vector, but customization can be more challenging than in `ggplot`):
+
+```{r}
+hist(gp_1)
+hist(gp_2)
+```
+
+If I want to compare ranks between `gp_1` and `gp_2`, what are some reasons I might choose a rank-based test?
+
+1. Not clearly normally distributed from exploratory histograms
+2. Somewhat small sample size (n = 15 for each)
+3. I've decided that ranks (or, medians) are a more valuable metric to compare for these data. 
+
+Here, we'll perform Mann-Whitney U to answer "Is there a significant difference in ranks (medians) between `gp_1` and `gp_2`?" using the `wilcox.test()` function.
+
+```{r}
+my_mwu <- wilcox.test(gp_1, gp_2)
+
+# Note: you will get a warning here that is just a "heads up" - if there are ties in ranks, the p-value is estimated using a normal approximation (and is fine)
+```
+
+Call `my_mwu` in the Console to see the stored output of the test. 
+
+What does that *p*-value of 0.28 actually mean? It means that if the null hypothesis is true (these samples were drawn from populations with the same median), there is a probability of 0.28 that we could have found median values *at least as different as ours* by chance. In other words: not sufficient evidence to reject the null hypothesis of equal ranks (or medians) using a significance level of 0.05.
+
+Though not doing it today, see `?kruskal.test` for more information about a rank-based test for comparing medians across > 2 groups (i.e. the rank-based alternative to one-way ANOVA). 
+
+## Part 3: Simple linear regression
+
+We'll exploring the relationship between two continuous variables, using the `penguins` dataset from the `palmerpenguins` package in R.
+
+Here, we'll explore the relationship between flipper length and body mass for penguins, including all 3 penguin species included in the `penguins` dataset.
+
+### A. Look at it!
+
+Always. This should always, always be the first thing we do. 
+
+Let's make an exploratory scatterplot of penguing flipper length versus body mass (here, we will *only* use those variables - keeping in mind as we move forward that we probably also want to include species and sex as variables in our model...).
+
+```{r}
+ggplot(data = penguins, aes(x = flipper_length_mm, y = body_mass_g)) +
+  geom_point()
+```
+
+We should ask questions about our exploratory visualization, like: 
+
+- Does it look like a linear relationship makes sense?
+- Do we have any concerns about modeling as a linear relationship?
+- Any notable outliers?
+- Initial thoughts about homoscedasticity (explored more later)? 
+
+Here, it looks like overall a linear relationship between flipper length and body mass makes sense here (moving forward, we're learn how to include species and sex as part of the model, but for now we'll just use the single exploratory variable `flipper_length_mm`). 
+
+### B. Model it
+
+Once we've decided that a linear relationship makes sense, we'll model it using `lm()`. 
+
+Note that we haven't checked all assumptions yet. That's because a lot of our assumptions for linear regression are based on model *residuals* (e.g. normality & homoscedasticity of residuals), which we can't calculate until after we find the predicted values from the model ($residual = y_{actual} - y_{predicted}$). 
+
+So make the model first: 
+```{r}
+# Linear model, stored as penguin_lm:
+penguin_lm <- lm(body_mass_g ~ flipper_length_mm, data = penguins)
+
+# Return the complete overview:
+summary(penguin_lm)
+```
+
+
+- Both the intercept and flipper_length_mm coefficients are significantly different from zero (not super interesting)
+- The R^2^ value is 0.759 - meaning that 75.9% of variance in body mass is explained by flipper length
+
+### C. Access model outputs
+
+We can access the coefficients for the model using:  
+
+- The slope is `r round(penguin_lm$coefficient[2],2)` (g / mm)
+- The y-intercept is `r round(penguin_lm$coefficient[1],2)` (g)
+- The full equation is mass = `r round(penguin_lm$coefficient[2],2)`*(flipper length) + (`r round(penguin_lm$coefficient[1],2)`)
+
+**But** trying to get all of the statistical information from the `summary()` function would be kind of a mess. 
+
+We can use the `broom::tidy()` function to get the model outputs in nice data frame format: 
+
+```{r}
+penguin_lm_tidy <- broom::tidy(penguin_lm)
+```
+
+Look at the output format by calling `penguin_lm_tidy` in the Console. Note that it's a nice table of all model outputs, which we can then refer to later on. 
+
+Some examples: 
+
+```{r}
+# Get the intercept: 
+penguin_int <- penguin_lm_tidy$estimate[1]
+penguin_int
+
+# Then to get the flipper_length coefficient:
+penguin_coef <- penguin_lm_tidy$estimate[2]
+penguin_coef
+```
+
+What about getting some other model information (degrees of freedom, F-statistic, p-value, etc.)?
+
+Many of these statistical outcomes can be accessed more easily using `broom::glance()`. 
+
+```{r}
+# Metrics at a glance: 
+penguin_lm_out <- broom::glance(penguin_lm)
+penguin_lm_out
+```
+
+We can use the results of both to write a statement about the model that will **automatically update** if anything about the model changes! Make sure to look at the .Rmd (not just this knitted html) to learn how to reference the outputs automatically in text. For example: 
+
+"Simple linear regression was used to explore the relationship between penguin flipper length (mm) and body mass (g) across all three penguin species, and including both male and female penguins. A significant regression model was found ($\beta$ = `r round(penguin_coef,3)`, F(`r penguin_lm_out$df`,`r penguin_lm_out$df.residual`) = `r round(penguin_lm_out$statistic,1)`, p < 0.001) with an R^2^ of `r round(penguin_lm_out$r.squared,3)`."
+
+**Note:** This might seem *really* tedious to write out, but the advantages are worth it. All values will be automatically updated when the model is updated! Reproducible and way less opportunity for human error. Plus, once you have this template statement made, you can reuse it for future regression models and just replace `penguin_lm_out` and `penguin_coef` with the appropriate objects for your new model! 
+
+Note that I use "p < 0.001" here if the p-value is very small - this is somewhat standard. 
+
+You can also use the `equatiomatic` package to get the output as a LaTeX equation: 
+```{r}
+extract_eq(model = penguin_lm, use_coefs = TRUE)
+```
+
+
+### D. Explore model assumptions
+
+Recall that we have assumptions for linear regression we need to explore, some related to the residuals.
+
+- Linearly related variables (CHECK - already looked & thought hard)
+- Normally distributed *residuals*
+- Homoscedasticity (constant residuals variance)
+- iid residuals (no serial correlation) - more often a concern in time series data
+
+Use the `plot()` function on the model, which will automatically create four useful visualizations to consider assumptions! 
+
+```{r}
+plot(penguin_lm)
+```
+
+Notice that four plots show up. What do they show? Make sure to watch Part 2 of the lecture, which discusses how we can interpret each of these diagnostic plots. 
+
+- **The first one**: fitted values vs. residuals 
+- **The second one**: QQ-plot for residuals 
+- **The third one**: another way of looking at fitted vs. residuals (these are just standardized residuals, but you can interpret it the same way)
+- **The fourth one**: Cook's distance, a measure of "influence" or "leverage" that individual points have on the model - often considered a way to explore outliers. 
+
+See the Week 6 Part 2 Lecture video for more information about how to interpret these outcomes, but in summary: graphs 1 & 3 are useful for thinking about homoscedasticity; graph 2 (QQ plot) helps us consider normality of residuals; graph 4 reveals the Cook's distance (a measure of how much leverage any single observation has on the model).
+
+### E. Visualize the model
+
+Now that we've explore the assumptions and have decided that linear regression is a valid tool to describe the relationship between flipper length and body mass, let's look at the model.
+
+- Use `geom_smooth(method = "lm")` to add a linear model to an existing scatterplot
+
+- Use `stat_cor()` and/or `stat_regline_equation()` to add equation information directly to the plot panel, at an x- and y-position that you specify (and yes, you can mess with the digits & appearance here)
+
+```{r}
+
+ggplot(data = penguins, aes(x = flipper_length_mm, y = body_mass_g)) +
+  geom_point(size = 2) +
+  geom_smooth(method = "lm",
+              color = "red",
+              size = 0.5,
+              fill = "gray10",
+              alpha = 0.5) +
+  theme_light() +
+  ggpubr::stat_regline_equation(label.x = 180, label.y = 5700)
+  
+```
+
+### F. Find Pearson's *r* for correlation: 
+
+In lecture we talked about the coefficient of determination, R^2^, which tells us how much of the variance in the dependent variable is explained by the model. 
+
+We might also want to explore the strength of the correlation (degree of relationship) between two variables which, for two linearly related continuous variables, can be expressed using Pearson's *r*. 
+
+Pearson's *r* ranges in value from -1 (perfectly negatively correlated - as one variable increases the other decreases) to 1 (perfectly positively correlated - as one variable increases the other increases). A correlation of 0 means that there is no degree of relationship between the two variables. 
+
+Typical guidelines look something like this (there's wiggle room in there): 
+
+- *r* = 0: no correlation
+- *r* < |0.3|: weak correlation
+- *r* between |0.3| and |0.7|: moderate correlation
+- *r* > |0.7|: strong correlation
+
+We'll use the `cor.test()` function, adding the two vectors (`flipper_length_mm` and `body_mass_g`) as the arguments. The function reports the Pearson's *r* value, and performs a hypothesis test with null hypothesis that the correlation = 0. 
+
+```{r}
+penguins_cor <- cor.test(penguins$flipper_length_mm, penguins$body_mass_g)
+```
+
+Here, we see that there is a strong positive correlation between penguin flipper length and body mass (*r* = `r round(penguins_cor$estimate,2)`, t(`r penguins_cor$parameter`) = `r round(penguins_cor$statistic,2)`, p < 0.001). 
+
+**Note**: Once you have a "template" statement, you can just replace `penguins_cor` here with whatever your correlation analysis is stored as! You don't need to recreate the wheel every time! 
+
+## END LAB - CONGRATULATIONS!
