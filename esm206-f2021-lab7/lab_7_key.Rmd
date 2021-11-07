@@ -1,0 +1,224 @@
+---
+title: "Lab 7 Key - Multiple Linear Regression"
+output: html_document
+---
+
+### 1. Overview
+
+In this week's lab, you'll follow along to learn how to perform, assess, interpret and communicate outcomes from multiple linear regression using the **penguins** data from the `palmerpenguins` package. 
+
+When we perform multiple linear regression, we are trying to understand the relationship between multiple predictor variables (continuous or categorical), and a single continuous output variable. Make sure to watch the Week 8 recorded lecture, and read the posted document on GauchoSpace, to learn more. 
+
+### 2. Set-up
+
+- Create a new .Rmd (this will be self-contained, so you don't need to worry about making it a project or external file paths or anything)
+- Delete everything below the first code chunk
+- In the setup chunk, attach the following packages:
+
+    - `tidyverse`
+    - `palmerpenguins`
+    - `GGally` (you probably need to install this one)
+    - `broom`
+    - `kableExtra`
+    - `modelsummary` (you probably need to install this one)
+    
+So your setup chunk will look like this: 
+
+```{r setup, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE, 
+                      warning = FALSE)
+
+library(tidyverse)
+library(palmerpenguins)
+library(GGally) # May need to install this one
+library(broom)
+library(kableExtra)
+library(modelsummary) # May need to install this one
+library(stargazer) # Optional
+
+```
+
+### 3. Explore the **penguins** data
+
+See more information on the Palmer Penguins data (collected by Dr. Kristen Gorman and colleagues at Palmer Station LTER): https://allisonhorst.github.io/palmerpenguins/
+
+#### a. Initial exploration
+
+We have a number of functions that can help take a quick look at our data, including: 
+
+- `View(penguins)` to view the entire data frame - remember to do this in the **Console** instead of as stored code in your .Rmd
+- `head(penguins)` to look at the first 6 lines
+- `names(penguins)` to see the variable names
+- `summary(penguins)` to get a summary by variable
+
+Run the above functions in the Console to remind yourself of the structure, organization and variables in the **penguins** data. 
+
+#### b. Pairs plots with `GGally`
+
+Now, we'll do some multivariate exploration using a new package, `GGally` (see more on the package [here](https://ggobi.github.io/ggally)).
+
+Add a new code chunk, and use the `GGally::ggpairs()` function to explore relationships between continuous quantitative variables. 
+
+Let's look at a few different outputs from `ggpairs()`:
+
+**"Out-of-the-box" (includes all variables):**
+
+```{r}
+ggpairs(penguins)
+```
+
+Does that seem like too much? **It IS.** Let's narrow it down a bit, for example to only the continuous variables (these are the variables we're usually most concerned about linearity between re: assumptions).
+
+We can select just `species` and the four continuous variables (`bill_length_mm` through `body_mass_g` in the data frame), then pipe right into `ggpairs()`, updating aesthetics within it like we would in `ggplot`:
+
+```{r}
+penguins %>%
+  select(species, bill_length_mm:body_mass_g) %>%
+  ggpairs(aes(color = species))
+```
+
+The resulting matrix gives us a LOT of information about distributions within groups (the histograms is column 1, boxplots in row 1, and density plots along the diagonal), and relationships (the scatterplots below the diagonal, and the correlation values above the diagonal). 
+
+Most importantly, it looks like there aren't notable *non-linear* relationships existing within species between any of the continuous variables (in the scatterplots). 
+
+Could we make each of these graphs separately with `ggplot2` to consider relationships? Sure! But `GGally` makes it quite a bit easier for us by automating it. 
+
+### 4. Multiple linear regression
+
+#### a. Build your model
+
+Recall: some of the assumptions of linear regression (e.g. heteroscedasticity and normality of residuals) are diagnosed *after* the model is created. 
+
+So our next step is to do multiple linear regression. Recall, the general code structure (without interaction terms) is:
+
+  `model_name <- lm(dv ~ iv1 + iv2 + iv3 + ..., data = df_name)`
+    
+In this example, we will model **penguin mass** to see how it changes with respect to three predictor variables: **flipper length**, **penguin species**, and **penguin sex**. Are there other possible models to explore? Absolutely, and in the real world you may want to try them out & compare. For today, we'll just consider that one model. 
+
+Insert a new code chunk, and build your model: 
+
+```{r}
+penguin_lm <- lm(body_mass_g ~ flipper_length_mm + species + sex, data = penguins)
+```
+
+#### b. Take a look at the result
+
+View the outputs by running `summary(penguin_lm)`:
+```{r}
+summary(penguin_lm)
+```
+
+#### c. Interpreting the model results
+
+##### Coefficients
+
+There's a lot there - let's break down some of the major pieces. We'll focus on the output starting with the **Coefficients** section (above that is just telling you the model variables & some not-super-useful quantiles for the residuals, which we'll explore later on).
+
+To get information about the coefficients in a more manageable format (a data frame), use `broom::tidy()`:
+
+```{r}
+penguin_lm_tidy <- tidy(penguin_lm)
+
+# Return it:
+penguin_lm_tidy
+```
+
+To start, **how do we interpret these coefficients? (in the 'estimate' column)**
+
+- **Intercept:** This coefficient value (`r round(penguin_lm_tidy$estimate[1],1)`) is not meaningful to interpret here on its own (though should still be included when making predictions). Technically, it is the expected mass of a penguin with flipper length of 0 mm. Often, the intercept is not useful to consider on its own (and reflects limits to how far we should extrapolate our model results beyond our observed data).
+- **flipper_length_mm:** The coefficient for flipper length (`r round(penguin_lm_tidy$estimate[2],1)`) is the average change we expect to see in body mass (grams) for a 1 mm increase in flipper length. 
+- **speciesChinstrap:** Since the reference species in this model is Adélie, the coefficient for Chinstrap here (`r round(penguin_lm_tidy$estimate[3],1)`) tells us that on average, we expect Chinstrap penguins to weigh `r round(-penguin_lm_tidy$estimate[3],1)` g **less** than Adélie penguins if other variables are fixed. 
+- **speciesGentoo:** Similarly, this coefficient is interpreted *with respect to the reference species Adélie*. The Gentoo coefficient (`r round(penguin_lm_tidy$estimate[4],1)`) tells us that on average, we expect Gentoo penguins to weigh `r round(penguin_lm_tidy$estimate[4],1)` g **more** than Adélie penguins if other variables are fixed. 
+- **sexmale:** This coefficient is also for a categorical variable (where female is the reference level). We interpret the coefficient for *sexmale* (`r round(penguin_lm_tidy$estimate[5],1)`) as follows: if penguins are consistent across all other variables, we expect a *male* penguin to weigh `r round(penguin_lm_tidy$estimate[5],1)` g **more** than a female penguin, on average. 
+
+What else is included in that output? The standard error is a measure of the accuracy of each coefficient estimate; the t-value is the test statistic comparing the *null hypothesis that the coefficient = 0* to the estimated value of the coefficient; the *p*-value is the probability of finding a coefficient *at least that different from zero* by random chance if the null hypothesis (coefficient = 0) is true. 
+
+Excluding the meaningless intercept here, that means that only the coefficient for **speciesChinstrap** is not significantly different from zero (i.e., if all other variables are constant, chinstrap mean mass does not differ significantly from Adélie mean mass) - which is consistent with exploratory analyses that show very similar body masses for those two species.  
+**Critical thinking:** Do the other coefficients (for flipper length, speciesGentoo and sexmale) align with your expectations based on exploratory data visualization? You should **always** consider model outputs alongside data visualization & exploration! 
+
+##### Overall model fit and significance
+
+You can see and parse information for the overall model using `broom::glance()`:
+
+```{r}
+penguin_lm_fit <- glance(penguin_lm)
+
+# Return output:
+penguin_lm_fit
+```
+
+The pieces that we'll focus on for now are: 
+
+- `adj.r.squared`: Adjusted R^2^ (% variance in body mass explained by the model). The adjusted R^2^ value here (`r round(penguin_lm_fit$adj.r.squared, 2)`) indicates that `r 100*round(penguin_lm_fit$adj.r.squared, 2)` % of variance in body mass is explained by the variables included in the model.  
+- `sigma`: residual standard error (measure of model accuracy)
+- `p.value`: The overall model *p*-value
+
+### 5. Model diagnostics
+
+Recall, we need to evaluate some important assumptions of multiple linear regression that can be best evaluated *after* the model is created, including:
+
+- Normality of residuals
+- Heteroscedasticity
+
+As we did for simple linear regression, use the `plot()` function to look at diagnostic plots for the model. Run the code below to produce diagnostic plots, from which we can see:
+
+- Residuals are *very* normally distributed (from the QQ plot)
+- Residuals variance is relatively constant across fitted values of the model, indicating homoscedasticity
+- No notable outliers with disproportionate leverage on the model results (as seen from the Cook's distance graph)
+
+Overall takeaway: no concerns about assumption violations based on these diagnostic plots.
+
+```{r}
+plot(penguin_lm)
+```
+
+
+### 6. Communicate results of your model
+
+Because there is a lot of information to include when reporting the results of multiple linear regression, results are most often reported in a table. They are also often challenging to create manually, though `broom::tidy()` provides a good starting point. 
+
+There also exist a number of R packages to automate creating regression tables (for a great summary of different table-making packages from David Keyes, see: https://rfortherestofus.com/2019/11/how-to-make-beautiful-tables-in-r/). 
+
+Here are a couple of options: 
+
+#### a. A regular `kable` table
+
+Starting from the tidy output and finalize manually (possibly with `kableExtra`, `gt`, or similar table-making packages). You'd want to further customize this (e.g. round to a reasonable number of significant figures, update 'Term' words, etc.). 
+
+*Note:* If you use this method, the caption should contain the overall model fit information (e.g. R^2^ and model *p*-value). 
+
+```{r}
+penguin_lm_tidy %>% 
+  kable(col.names = c("Term",
+                      "Estimate",
+                      "St Error",
+                      "t-statistic",
+                      "p-value")) %>% 
+  kable_styling(full_width = FALSE)
+
+```
+
+#### b. `modelsummary` package
+
+```{r}
+modelsummary(penguin_lm)
+```
+
+
+<!-- #### c. The `stargazer` package
+
+Another option is the `stargazer` package, which creates a comprehensive regression table (including in html format). 
+
+Use the `stargazer()` function on your model name to produce the table. **NOTE:** to get this to appear correctly in your knitted html, you need to include two things:
+
+- In the **code chunk header** add an option `results = "asis"` (i.e., the entire code chunk header should look like this: `{r, results = "asis"}`)
+- Include the argument `type = "html"` within the `stargazer()` function as below (since the default is LaTeX)
+
+```{r, results = "asis"}
+stargazer(penguin_lm, type = "html")
+```
+
+-->
+
+## END LAB
