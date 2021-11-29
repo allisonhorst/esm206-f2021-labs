@@ -11,9 +11,9 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 - Explore multivariate data (SLO housing prices)
 - Perform multiple linear regression
-- Assess diagnostics
+- Assess diagnostics & fit
 - Compare different models by AIC
-- Explain model outputs
+- Interpret model outputs
 - Make a nice table of regression results
 - Make predictions using a final model
 - git branch
@@ -37,7 +37,7 @@ library(modelsummary)
 homes <- read_csv("slo_homes.csv") # Read in data
 
 homes_sub <- homes %>% 
-  filter(City == "Arroyo Grande" | City == "San Luis Obispo" | City == "Atascadero" | City == "Santa Maria-Orcutt")
+  filter(City %in% c("Arroyo Grande", "San Luis Obispo", "Atascadero", "Santa Maria-Orcutt"))
 
 ```
 
@@ -55,6 +55,8 @@ mean_by_city <- homes_sub %>%
     mean_val = mean(Price)
   )
 
+# Try also grouping by sale status!
+
 by_city <- ggplot(homes_sub, aes(x = Price)) +
   geom_density(aes(color = City, fill = City), alpha = 0.3) + # Note: just to show what the geom_violin shows
   theme_classic() +
@@ -66,7 +68,7 @@ by_city
 
 ```
 
-Or another question: Overall relationship between home square footage and price, separated by City? 
+Or another question: Overall relationship between home square footage and price, by City? 
 
 ```{r by_sqft}
 
@@ -75,15 +77,13 @@ by_sqft <- ggplot(homes_sub, aes(x = SqFt, y = Price)) +
 
 by_sqft
 
-# Observations here: Does relationship appear ~ linear? Anything else we can pick out re: trends, outliers, etc.? What is the general trend? Any outliers? Is there reason enough for us to omit it?
+# Observations here: Does relationship appear linear? Anything else we can pick out re: trends, outliers, etc.? What is the general trend? Any outliers? Is there reason enough for us to omit it?
 
 ```
 
 ```{r explore_data}
 
 # Correlation matrix: any concerns about collinearity? 
-# Histogram of final: 
-# Relationships for all:
 
 ```
 

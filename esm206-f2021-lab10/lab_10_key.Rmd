@@ -1,0 +1,204 @@
+---
+title: "Lab 10 - Cool & (sometimes) useful stuff"
+output: html_document
+---
+
+## Get started:
+
+- Create an R Project without version control (i.e. just through RStudio)
+- Create a new R Markdown document
+- Attach the following packages (you'll probably need to install a number of these)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(usethis)
+library(beepr) # Install
+library(praise) # Install
+library(cowsay) # Install
+library(paletteer) # Install
+library(sf) # Install
+library(janitor)
+```
+
+## `beepr::beep()` to let you know when your code is done running
+
+- Try it on it's own in the Console: `beep()`
+
+- See the different options with `?beep()`
+
+- Its real value: when you have code (simulations, model, etc.) that takes a while to run, you may want to do something else in the meantime. This way you get an alert when your code is done running. 
+
+Let's write a little loop that'll take a bit of time (we'll run the whole chunk - the beep won't happy until after the for loop finishes).  
+
+(Note: probably `eval = FALSE` this code chunk before knitting)!
+
+```{r, eval = FALSE}
+
+for (i in rev(seq(1:999))) (
+  print(paste(i, "bottles of beer on the wall"))
+) 
+
+beepr::beep(5)
+```
+
+Up it to 9,999 bottles to start, and try again with a different beep! 
+
+## `praise::praise()` to give yourself a boost
+
+Use the `praise::praise()` function to say something nice! 
+
+- Just by itself it's pretty cool. Try it out in the Console! `praise::praise()`.
+
+- But you can also add customization. See the different types of grammatical bits you can add: https://github.com/rladies/praise
+
+For example: 
+
+```{r}
+praise::praise("${EXCLAMATION}-n-${EXCLAMATION}! This code works ${adverb_manner}!")
+```
+
+Or:
+
+```{r}
+praise::praise("Holy ${creating}, Batman - this code is ${adjective}!")
+```
+
+## `cowsay::say()` to have a character say something
+
+Use the `cowsay::say()` function to create an ASCII character that says something for you. 
+
+See `?say` to see what characters exist. For example: `say("Hello", by = "shark")`
+
+Or even better...combine it with praise! 
+
+```{r}
+say(praise("This is ${ADJECTIVE}!!!"), by = "pig")
+```
+
+
+Try some different fun combinations. 
+
+## usethis for everything
+
+### Creating a version controlled R Project
+
+So far, we've created version-controlled projects using the "repo first, then clone to make an R Project" workflow. Now, let's learn how we can start from a non-version controlled R Project (i.e. an "R Project first workflow"). 
+
+### Reminder: changing from `master` to `main`
+
+- Go to your GitHub repo
+- Click on branches
+- Click editing pencil to right of `master`
+- Rename
+- Copy the git commands to your clipboard
+- Go back to RStudio
+- Paste those into the TERMINAL, press Enter to run
+- Now the default in both places is `main`
+
+### Editing your R Profile
+
+Go to your R Profile by running `usethis::edit_r_profile()` in the Console. This should bring up your `.Rprofile` file. 
+
+Add a line that contains the following: 
+
+`praise::praise()`
+
+Save your .Rprofile, then restart R (Session > Restart R). Notice that a nice message now shows up every time you restart R. 
+
+Now, let's add a nice character to send us that message instead, for example: 
+
+`cowsay::say(praise::praise(), by = "trilobite")`.
+
+## paletteer for a universe of color palettes
+
+There are *thousands* of color palettes that other people have created in R. The `paletteer` package by Emil Hvitfeldt puts them together in one place. 
+
+- Learn more: https://github.com/EmilHvitfeldt/paletteer
+
+- Or see the interactive color palette picker: https://emilhvitfeldt.github.io/r-color-palettes/
+
+Let's check out some of the discrete color palettes with `View(palettes_d_names)`. Now, let's make a little graph and fill columns using an existing palette. 
+
+We'll use the `storms` data (in `dplyr`)
+
+```{r}
+
+storms %>% 
+  group_by(name) %>% 
+  summarize(min_pressure = min(pressure, na.rm = TRUE)) %>% 
+  slice_min(n = 10, min_pressure) %>% 
+  ggplot(aes(y = name, x = min_pressure)) +
+  geom_col(aes(fill = name)) +
+  scale_fill_paletteer_d(palette = "ggprism::floral")
+
+```
+Go ahead & play around with different built-in palettes! 
+
+## sf + ggplot: maps in R 
+
+We've been using flat files (CSVs -- but there a functions to read in all kinds of files like Excel files, text, delimited, and much more!). Let's read in a .kml file (`doc.kml` - you can download this from GauchoSpace). 
+
+**Source:** Jornada Basin LTER Spatial Data: Dominant Vegetation of the JER and CDRRC in 1998 (Download KMZ 3972 KB) Dominant and subdominant vegetation on the Jornada Experimental Range and Chihuahuan Desert Rangeland Research Center in 1998. Published in Gibbens, R. P., McNeely, R. P., Havstad, K. M., Beck, R. F., & Nolen, B. (2005). Vegetation changes in the Jornada Basin from 1858 to 1998. Journal of Arid Environments, 61(4), 651-668.
+
+```{r}
+jornada_veg <- read_sf("doc.kml") %>% dplyr::select(Name) %>% 
+  clean_names()
+
+ggplot() +
+  geom_sf(data = jornada_veg, 
+          aes(fill = name),
+          color = NA) +
+  theme_minimal() +
+  scale_fill_paletteer_d(palette = "ggthemes::manyeys") +
+  labs(x = "Longitude",
+       y = "Latitude",
+       fill = "Dominant vegetation:",
+       title = "Jornada Basin vegetation",
+       caption = "Data source: Jornada Basin LTER") +
+  theme(legend.position = "right",
+        plot.title.position = "plot",
+        plot.caption.position = "plot",
+        plot.caption = element_text(face = "italic", color = "gray30"),
+        axis.text = element_text(size = 5))
+```
+## And export your map: 
+
+```{r, eval = FALSE}
+ggsave(filename = "my_awesome_map.png", width = 6, height = 4)
+```
+
+
+## Package citations
+
+Rasmus Bååth (2018). beepr: Easily Play Notification Sounds
+  on any Platform. R package version 1.3.
+  https://CRAN.R-project.org/package=beepr
+  
+Gabor Csardi and Sindre Sorhus (2015). praise: Praise Users.
+  R package version 1.0.0.
+  https://CRAN.R-project.org/package=praise
+  
+Hadley Wickham and Jennifer Bryan (2021). usethis: Automate
+  Package and Project Setup. R package version 2.0.1.
+  https://CRAN.R-project.org/package=usethis
+  
+Wickham et al., (2019). Welcome to the tidyverse. Journal of
+  Open Source Software, 4(43), 1686,
+  https://doi.org/10.21105/joss.01686
+  
+Scott Chamberlain and Amanda Dobbyn (2020). cowsay:
+  Messages, Warnings, Strings with Ascii Animals. R package
+  version 0.8.0. https://CRAN.R-project.org/package=cowsay
+  
+Hvitfeldt E. (2021). paletteer: Comprehensive Collection of
+  Color Palettes. version 1.3.0.
+  https://github.com/EmilHvitfeldt/paletteer
+  
+Pebesma, E., 2018. Simple Features for R: Standardized
+  Support for Spatial Vector Data. The R Journal 10 (1),
+  439-446, https://doi.org/10.32614/RJ-2018-009
+  
